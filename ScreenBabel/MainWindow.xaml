@@ -3,10 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:ScreenBabel"
-        xmlns:System="clr-namespace:System;assembly=mscorlib" x:Class="ScreenBabel.MainWindow"
+        xmlns:System="clr-namespace:System;assembly=mscorlib" xmlns:Properties="clr-namespace:ScreenBabel.Properties" x:Class="ScreenBabel.MainWindow"
         mc:Ignorable="d"
-        Title="{DynamicResource MainTitle}" Height="450" Width="800" AllowsTransparency="True" WindowStyle="None" Background="{x:Null}" ResizeMode="CanResizeWithGrip" Topmost="True" SnapsToDevicePixels="True" MouseDown="Window_MouseDown" SizeChanged="Window_SizeChanged" MinWidth="156">
+        Title="{DynamicResource Text.MainTitle}" Width="{Binding MainWidth, Mode=TwoWay}" Height="{Binding MainHeight, Mode=TwoWay}" Left="{Binding MainLeft, Mode=TwoWay}" Top="{Binding MainTop, Mode=TwoWay}" DataContext="{x:Static Properties:Settings.Default}" AllowsTransparency="True" WindowStyle="None" Background="{x:Null}" ResizeMode="CanResizeWithGrip" Topmost="True" SnapsToDevicePixels="True" SizeChanged="Window_SizeChanged" MinWidth="156" MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Window.Resources>
         <System:Double x:Key="MainBorderSize">3</System:Double>
         <Thickness x:Key="MainMargin">3,3,3,3</Thickness>
@@ -18,39 +17,40 @@
         <Rectangle Fill="#fff" VerticalAlignment="Bottom" Height="{DynamicResource MainBorderSize}"/>
         <Rectangle Stroke="#ccc"/>
         <Rectangle x:Name="MainInnerArea" Margin="{DynamicResource MainMargin}" Stroke="#ccc"/>
-        <Grid Width="150" Margin="0,2,0,0" VerticalAlignment="Top" HorizontalAlignment="Center">
+        <Grid Width="150" Height="4" Margin="0,2,0,0" VerticalAlignment="Top" HorizontalAlignment="Center">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition/>
                 <ColumnDefinition Width="3*"/>
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
-            <Button x:Name="CaptureAuto_Small" Grid.Column="0" Background="#00f" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="CaptureAuto_Click"/>
-            <Button x:Name="CaptureStop_Small" Grid.Column="0" Background="#f00" BorderBrush="{x:Null}" Foreground="{x:Null}" Visibility="Collapsed" Click="CaptureStop_Click"/>
-            <Button x:Name="CaptureOnce_Small" Grid.Column="2" Background="#0f0" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="CaptureOnce_Click"/>
+            <Button x:Name="CaptureAuto_Small" Grid.Column="0" Background="#00f" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="CaptureAuto_Click" ToolTip="{DynamicResource Text.CaptureAuto}"/>
+            <Button x:Name="CaptureStop_Small" Grid.Column="0" Background="#f00" BorderBrush="{x:Null}" Foreground="{x:Null}" Visibility="Collapsed" Click="CaptureStop_Click" ToolTip="{DynamicResource Text.CaptureStop}"/>
+            <Button x:Name="CaptureOnce_Small" Grid.Column="2" Background="#0f0" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="CaptureOnce_Click" ToolTip="{DynamicResource Text.CaptureOnce}"/>
         </Grid>
-        <Grid x:Name="MainTitleArea" Height="32" VerticalAlignment="Top">
+        <Button x:Name="Exit_Small" Width="30" Height="4" Margin="0,2,2,0" Background="#333" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="Exit_Click" VerticalAlignment="Top" HorizontalAlignment="Right" ToolTip="{DynamicResource Text.Exit}"/>
+        <Grid x:Name="MainTitleArea" Height="32" VerticalAlignment="Top" Visibility="{Binding MainTitleVisibility, Source={x:Static Properties:Settings.Default}, Mode=TwoWay}">
             <Rectangle Stroke="#ccc" Fill="#fff"/>
-            <Label x:Name="TitleLabel" Content="{DynamicResource MainTitle}" HorizontalAlignment="Left" VerticalAlignment="Top" Height="32" Width="96" FontSize="16"/>
+            <Label x:Name="TitleLabel" Content="{DynamicResource Text.MainTitle}" HorizontalAlignment="Left" VerticalAlignment="Top" Height="32" Width="96" FontSize="16"/>
             <Grid Width="150" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Center" >
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition/>
                     <ColumnDefinition Width="3*"/>
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
-                <Button x:Name="CaptureAuto" Grid.Column="0" Background="#00f" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="CaptureAuto_Click">
+                <Button x:Name="CaptureAuto" Grid.Column="0" Background="#00f" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="CaptureAuto_Click" ToolTip="{DynamicResource Text.CaptureAuto}">
                     <Viewbox>
-                        <ContentControl Content="{DynamicResource Button.CaptureAuto}" Foreground="{x:Null}"/>
+                        <ContentControl Content="{DynamicResource Icon.CaptureAuto}" Foreground="{x:Null}"/>
                     </Viewbox>
                 </Button>
-                <Button x:Name="CaptureStop" Grid.Column="0" Background="#f00" BorderBrush="{x:Null}" Foreground="{x:Null}" Visibility="Collapsed" Click="CaptureStop_Click">
+                <Button x:Name="CaptureStop" Grid.Column="0" Background="#f00" BorderBrush="{x:Null}" Foreground="{x:Null}" Visibility="Collapsed" Click="CaptureStop_Click" ToolTip="{DynamicResource Text.CaptureStop}">
                     <Viewbox>
-                        <ContentControl Content="{DynamicResource Button.CaptureStop}"/>
+                        <ContentControl Content="{DynamicResource Icon.CaptureStop}"/>
                     </Viewbox>
                 </Button>
-                <TextBox x:Name="IntervalInput" Grid.Column="1" Text="1" VerticalAlignment="Center" Background="{x:Null}" BorderBrush="#CCC" Foreground="#333" HorizontalContentAlignment="Center" PreviewTextInput="IntervalInput_PreviewTextInput"/>
-                <Button x:Name="CaptureOnce" Grid.Column="2" Background="#0f0" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="CaptureOnce_Click">
+                <TextBox x:Name="IntervalInput" Grid.Column="1" Text="{Binding IntervalTime, Source={x:Static Properties:Settings.Default}, Mode=TwoWay}" VerticalAlignment="Center" Background="{x:Null}" BorderBrush="#CCC" Foreground="#333" HorizontalContentAlignment="Center" PreviewTextInput="IntervalInput_PreviewTextInput" ToolTip="{DynamicResource Text.IntervalTime}"/>
+                <Button x:Name="CaptureOnce" Grid.Column="2" Background="#0f0" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="CaptureOnce_Click" ToolTip="{DynamicResource Text.CaptureOnce}">
                     <Viewbox>
-                        <ContentControl Content="{DynamicResource Button.CaptureOnce}"/>
+                        <ContentControl Content="{DynamicResource Icon.CaptureOnce}"/>
                     </Viewbox>
                 </Button>
             </Grid>
@@ -62,17 +62,17 @@
                 </Grid.ColumnDefinitions>
                 <Button Grid.Column="0" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="Setting_Click">
                     <Viewbox>
-                        <ContentControl Content="{StaticResource Button.Setting}"/>
+                        <ContentControl Content="{StaticResource Icon.Setting}"/>
                     </Viewbox>
                 </Button>
                 <Button Grid.Column="1" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="Minus_Click">
                     <Viewbox>
-                        <ContentControl Content="{StaticResource Button.Minus}"/>
+                        <ContentControl Content="{StaticResource Icon.Minus}"/>
                     </Viewbox>
                 </Button>
-                <Button Grid.Column="2" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="Close_Click">
+                <Button Grid.Column="2" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="{x:Null}" Click="Exit_Click">
                     <Viewbox>
-                        <ContentControl Content="{StaticResource Button.Close}"/>
+                        <ContentControl Content="{StaticResource Icon.Close}"/>
                     </Viewbox>
                 </Button>
             </Grid>

@@ -1,20 +1,10 @@
-﻿using System;
-using System.Drawing;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Drawing;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Drawing.Imaging;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Windows.Threading;
 
 namespace ScreenBabel
 {
@@ -23,16 +13,17 @@ namespace ScreenBabel
     /// </summary>
     public partial class MainWindow : Window
     {
-        public readonly int BorderSize;
+        private readonly int BorderSize;
 
         public MainWindow()
         {
             InitializeComponent();
             BorderSize = (int)(double)Resources["MainBorderSize"];
-            Util.Recognition.Prepare();
+            Util.Recognition.Prepare(this);
+            Closed += (sender, e) => Properties.Settings.Default.Save();
         }
 
-        private void Capture()
+        private Task Capture()
         {
             var left = (int)Left + BorderSize;
             var width = (int)MainInnerArea.ActualWidth;
@@ -46,17 +37,18 @@ namespace ScreenBabel
             {
                 graphics.CopyFromScreen(left, top, 0, 0, new System.Drawing.Size(width, height));
             }
-            Util.Recognition.Recognize(bitmap);
+            return Util.Recognition.Recognize(bitmap);
         }
 
         #region Buttons
 
-        private void Window_MouseDown(object sender, MouseButtonEventArgs e)
+
+        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            this.DragMove();
+            DragMove();
         }
 
-        private void Close_Click(object sender, RoutedEventArgs e)
+        private void Exit_Click(object sender, RoutedEventArgs e)
         {
             Close();
         }
@@ -68,7 +60,8 @@ namespace ScreenBabel
 
         private void Setting_Click(object sender, RoutedEventArgs e)
         {
-            // TODO .
+            var setting = new Component.Setting();
+            setting.ShowDialog();
         }
 
         #endregion
@@ -80,18 +73,33 @@ namespace ScreenBabel
             MainTitleArea.Visibility = MainTitleArea.IsVisible ? Visibility.Collapsed : Visibility.Visible;
         }
 
+        private DispatcherTimer timer;
         private void CaptureAuto_Click(object sender, RoutedEventArgs e)
         {
             if (!Regex.IsMatch(IntervalInput.Text, @"^\d+$"))
             {
-                IntervalInput.Text = ""; // TODO alert
+                MessageBox.Show((string)TryFindResource("Text.Tip.InvalidIntervalTime"));
                 return;
             }
+            var interval = int.Parse(IntervalInput.Text);
+
             CaptureAuto.Visibility = Visibility.Collapsed;
             CaptureAuto_Small.Visibility = Visibility.Collapsed;
             CaptureStop.Visibility = Visibility.Visible;
             CaptureStop_Small.Visibility = Visibility.Visible;
             IntervalInput.IsReadOnly = true;
+            IntervalInput.IsEnabled = false;
+            CaptureOnce.IsEnabled = false;
+            CaptureOnce_Small.IsEnabled = false;
+
+            if (timer != null)
+            {
+                CaptureStop_Click(null, null);
+            }
+            timer = new DispatcherTimer();
+            timer.Tick += (_sender, _e) => Capture();
+            timer.Interval = new System.TimeSpan(0, 0, 0, 0, interval);
+            timer.Start();
         }
 
         private void CaptureStop_Click(object sender, RoutedEventArgs e)
@@ -101,11 +109,31 @@ namespace ScreenBabel
             CaptureStop.Visibility = Visibility.Collapsed;
             CaptureStop_Small.Visibility = Visibility.Collapsed;
             IntervalInput.IsReadOnly = false;
+            IntervalInput.IsEnabled = true;
+            CaptureOnce.IsEnabled = true;
+            CaptureOnce_Small.IsEnabled = true;
+
+            if (timer != null)
+            {
+                timer.Stop();
+                timer = null;
+            }
         }
 
         private void CaptureOnce_Click(object sender, RoutedEventArgs e)
         {
-            Capture();
+            CaptureAuto.IsEnabled = false;
+            CaptureAuto_Small.IsEnabled = false;
+            CaptureOnce.IsEnabled = false;
+            CaptureOnce_Small.IsEnabled = false;
+            var task = Capture();
+            var context = SynchronizationContext.Current;
+            task.ContinueWith(_task => context.Post(state => {
+                CaptureAuto.IsEnabled = true;
+                CaptureAuto_Small.IsEnabled = true;
+                CaptureOnce.IsEnabled = true;
+                CaptureOnce_Small.IsEnabled = true;
+            }, null));
         }
 
         private void IntervalInput_PreviewTextInput(object sender, TextCompositionEventArgs e)
@@ -115,15 +143,10 @@ namespace ScreenBabel
 
         private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            if (ActualWidth < 430)
+            var visibility = ActualWidth < 350 ? Visibility.Collapsed : Visibility.Visible;
+            foreach (var element in new UIElement[] { TitleLabel, ButtonGrid, Exit_Small })
             {
-                TitleLabel.Visibility = Visibility.Collapsed;
-                ButtonGrid.Visibility = Visibility.Collapsed;
-            }
-            else
-            {
-                TitleLabel.Visibility = Visibility.Visible;
-                ButtonGrid.Visibility = Visibility.Visible;
+                element.Visibility = visibility;
             }
         }
 

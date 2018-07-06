@@ -1,37 +1,37 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace ScreenBabel.Util
 {
     public static class Recognition
     {
-        // TODO configuration.
-        private static readonly JObject configJSON = JObject.Parse(File.ReadAllText("./config.json"));
-        private static readonly string appKey = (string) configJSON["appKey"];
-        private static readonly string appSecret = (string)configJSON["appSecret"];
-        private static readonly string ocrUrl = (string)configJSON["ocrUrl"];
+        private static Action<Action<FrameworkElement>> PostUIThread;
+        internal static void Prepare(FrameworkElement element)
+        {
+            var context = SynchronizationContext.Current;
+            PostUIThread = action => context.Post(state => action(element), null);
+        }
 
         private static Component.Output output;
-        private static SynchronizationContext context;
-        internal static void Prepare()
-        {
-            context = SynchronizationContext.Current;
-        }
         private static void UpdateResult(object state)
         {
             if (output == null)
             {
                 output = new Component.Output();
-                output.Closed += (object sender, EventArgs e) => output = null;
+                output.Closed += (sender, e) => output = null;
             }
             var result = (Dictionary<string, string>)state;
             output.Topmost = true;
@@ -39,49 +39,53 @@ namespace ScreenBabel.Util
             output.Raw.Text = result["raw"];
             output.Out.Text = result["text"];
         }
-
-        //private static async Task<string> RecognizeOffline(Image image)
-        //{
-        //    return await Task.Run(() =>
-        //    {
-        //        var engine = new TesseractEngine(@"./tessdata", "jpn", EngineMode.Default);
-        //        var page = engine.Process(new Bitmap(image));
-        //        return page.GetText();
-        //    });
-        //}
-
-        //private static async Task<string> RecognizeOnline(Image image)
-        //{
-        //    var resp = await AzureOCRRequest(image);
-        //    if (resp["regions"] == null)
-        //    {
-        //        return (string)resp["message"];
-        //    }
-        //    var regions = resp["regions"].SelectMany(region =>
-        //        region["lines"].Select(line =>
-        //            String.Join("", line["words"].Select(word => (string)word["text"]).ToList())
-        //        ).ToList()
-        //    ).ToList();
-        //    return String.Join("\n", regions);
-        //}
-
-        internal static async void Recognize(Bitmap image)
+        
+        internal static async Task Recognize(Bitmap image)
         {
-            //var text = await RecognizeOffline(image);
-            //var text = await RecognizeOnline(image);
-            await Task.Run(() => YouDaoOCR(image));
+            // TODO 去重复捕捉
+            var raw = "";
+            var text = "";
+            switch (Resources.Setting.Default.RecognitionMode)
+            {
+                case "YouDao":
+                    var result = await Task.Run(() => YouDaoOCR(image));
+                    if (result != null)
+                    {
+                        raw = result[0];
+                        text = result[1];
+                    }
+                    break;
+                case "Azure":
+                    raw = await AzureOCRRequest(image);
+                    if (!String.IsNullOrEmpty(raw))
+                    {
+                        text = await AzureTranslate(raw);
+                    }
+                    break;
+                case "Tesseract": // TODO 当前训练集识别率太低.
+                default:
+                    throw new ArgumentException("invalid value of RecognitionMode: " + Resources.Setting.Default.RecognitionMode);
+            }
+            PostUIThread(ele => UpdateResult(new Dictionary<string, string> { { "raw", raw }, { "text", text } }));
         }
 
         #region YouDao
 
-        public static object HttpUtility { get; private set; }
-
-        private static string YouDaoOCR(Bitmap image)
+        private static string[] YouDaoOCR(Bitmap image)
         {
-            var bytes = ImgToBase64String(image);
+            var appKey = Resources.Setting.Default.YouDaoAppKey;
+            var appSecret = Resources.Setting.Default.YouDaoAppSecret;
+            var ocrApi = Resources.Setting.Default.YouDaoOCRApi;
+            if (String.IsNullOrEmpty(appKey) || String.IsNullOrEmpty(appSecret) || String.IsNullOrEmpty(ocrApi))
+            {
+                PostUIThread(element => MessageBox.Show(String.Format(
+                    (string)element.TryFindResource("Text.Tip.InvalidRecognitionMode"),
+                    (string)element.TryFindResource("Text.Setting.YouDao")
+                )));
+                return null;
+            }
 
-            var from = "ja";
-            var to = "zh-CHS";
+            var bytes = ImgToBase64String(image);
             var type = "1";
             var salt = DateTime.Now.Millisecond.ToString();
             MD5 md5 = new MD5CryptoServiceProvider();
@@ -92,25 +96,23 @@ namespace ScreenBabel.Util
             var dic = new Dictionary<string, string>
             {
                 { "type", type.ToString() },
-                { "from", from },
-                { "to", to },
                 { "appKey", appKey },
                 { "salt", salt.ToString() },
                 { "sign", sign },
                 { "q", bytes },
             };
 
-            var resp = JObject.Parse(Post(ocrUrl, dic));
+            var resp = JObject.Parse(Post(ocrApi, dic));
             if ((int)resp["errorCode"] != 0)
             {
-                return resp.ToString();
+                PostUIThread(element => MessageBox.Show((string)resp.ToString()));
+                return null;
             }
 
             var regions = resp["resRegions"];
             var raw = String.Join("\n", regions.Select(region => (string)region["context"]).ToList());
             var text = String.Join("\n", regions.Select(region => (string)region["tranContent"]).ToList());
-            context.Post(UpdateResult, new Dictionary<string, string> { { "raw", raw }, { "text", text } });
-            return text;
+            return new string[] { raw, text };
         }
         private static string ImgToBase64String(Bitmap image)
         {
@@ -138,13 +140,9 @@ namespace ScreenBabel.Util
 
             #region 添加Post 参数
             StringBuilder builder = new StringBuilder();
-            int i = 0;
             foreach (var item in dic)
             {
-                if (i > 0)
-                    builder.Append("&");
-                builder.AppendFormat("{0}={1}", item.Key, WebUtility.UrlEncode(item.Value));
-                i++;
+                builder.AppendFormat("&{0}={1}", item.Key, WebUtility.UrlEncode(item.Value));
             }
             // Console.WriteLine(builder.ToString());
             byte[] data = Encoding.UTF8.GetBytes(builder.ToString());
@@ -202,95 +200,130 @@ namespace ScreenBabel.Util
         #endregion
 
         #region deprecated.Azure
+        
+        private static async Task<string> AzureOCRRequest(Image image)
+        {
+            // https://docs.microsoft.com/zh-cn/azure/cognitive-services/Computer-vision/quickstarts/csharp-print-text
 
-        //const string ocrKey = "// TODO";
-        //const string ocrUri = "https://westcentralus.api.cognitive.microsoft.com/vision/v2.0/ocr";
-        //const string transKey = "// TODO";
-        //const string transUri = "https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=";
-        //const string transTo = "zh-Hans";
+            var ocrKey = Resources.Setting.Default.AzureOCRKey;
+            var ocrApi = Resources.Setting.Default.AzureOCRApi;
+            if (String.IsNullOrEmpty(ocrKey) || String.IsNullOrEmpty(ocrApi))
+            {
+                PostUIThread(element => MessageBox.Show(String.Format(
+                    (string)element.TryFindResource("Text.Tip.InvalidRecognitionMode"),
+                    (string)element.TryFindResource("Text.Setting.Azure")
+                )));
+                return "";
+            }
 
-        //private static async Task<string> AzureTranslate(string text)
+            HttpClient client = new HttpClient();
+
+            // Request headers.
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", ocrKey);
+
+            HttpResponseMessage response;
+
+            // Request body. Posts a locally stored JPEG image.
+            byte[] byteData = ImageToBytes(image);
+
+            using (ByteArrayContent content = new ByteArrayContent(byteData))
+            {
+                // This example uses content type "application/octet-stream".
+                // The other content types you can use are "application/json"
+                // and "multipart/form-data".
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+
+                // Make the REST API call.
+                response = await client.PostAsync(ocrApi, content);
+            }
+
+            // Get the JSON response.
+            string contentString = await response.Content.ReadAsStringAsync();
+
+            // Display the JSON response.
+            var resp = JObject.Parse(contentString);
+
+            if (resp["regions"] == null)
+            {
+                return (string)resp["message"];
+            }
+            var regions = resp["regions"].SelectMany(region =>
+                region["lines"].Select(line =>
+                    String.Join("", line["words"].Select(word => (string)word["text"]).ToList())
+                ).ToList()
+            ).ToList();
+            return String.Join("\n", regions);
+        }
+        private static byte[] ImageToBytes(Image image)
+        {
+            using (var stream = new MemoryStream())
+            {
+                image.Save(stream, System.Drawing.Imaging.ImageFormat.Bmp);
+                stream.Position = 0;
+
+                var bytes = new Byte[stream.Length];
+                stream.Read(bytes, 0, bytes.Length);
+
+                return bytes;
+            }
+        }
+
+        private static async Task<string> AzureTranslate(string text)
+        {
+            // https://docs.microsoft.com/zh-cn/azure/cognitive-services/translator/quickstart-csharp-translate
+
+            var transKey = Resources.Setting.Default.AzureTransKey;
+            var transApi = Resources.Setting.Default.AzureTransApi;
+            if (String.IsNullOrEmpty(transKey) || String.IsNullOrEmpty(transApi))
+            {
+                var promise = new TaskCompletionSource<string>();
+                PostUIThread(element => {
+                    var message = String.Format(
+                        (string)element.TryFindResource("Text.Tip.InvalidRecognitionMode"),
+                        (string)element.TryFindResource("Text.Setting.Azure")
+                    );
+                    promise.TrySetResult(message);
+                    //MessageBox.Show(message);
+                });
+                return await promise.Task;
+            }
+
+            System.Object[] body = new System.Object[] { new { Text = text } };
+            var requestBody = JsonConvert.SerializeObject(body);
+
+            using (var client = new HttpClient())
+            using (var request = new HttpRequestMessage())
+            {
+                request.Method = HttpMethod.Post;
+                request.RequestUri = new Uri(transApi);
+                request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                request.Headers.Add("Ocp-Apim-Subscription-Key", transKey);
+
+                var response = await client.SendAsync(request);
+                var responseBody = await response.Content.ReadAsStringAsync();
+                var resp = JObject.Parse(responseBody);
+
+                if (resp["translations"] == null)
+                {
+                    return (string)resp["message"];
+                }
+                var translations = resp["translations"].Select(translation => (string)translation["text"]).ToList();
+                return String.Join("\n", translations);
+            }
+        }
+
+        #endregion
+
+        #region Tesseract
+
+        //private static async Task<string> RecognizeOffline(Image image)
         //{
-        //    // https://docs.microsoft.com/zh-cn/azure/cognitive-services/translator/quickstart-csharp-translate
-
-        //    System.Object[] body = new System.Object[] { new { Text = text } };
-        //    var requestBody = JsonConvert.SerializeObject(body);
-
-        //    using (var client = new HttpClient())
-        //    using (var request = new HttpRequestMessage())
+        //    return await Task.Run(() =>
         //    {
-        //        request.Method = HttpMethod.Post;
-        //        request.RequestUri = new Uri(transUri + transTo);
-        //        request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-        //        request.Headers.Add("Ocp-Apim-Subscription-Key", transKey);
-
-        //        var response = await client.SendAsync(request);
-        //        var responseBody = await response.Content.ReadAsStringAsync();
-        //        var result = JsonConvert.SerializeObject(JsonConvert.DeserializeObject(responseBody), Formatting.Indented);
-
-        //        return result;
-        //    }
-        //}
-
-        //private static async Task<JObject> AzureOCRRequest(Image image)
-        //{
-        //    // https://docs.microsoft.com/zh-cn/azure/cognitive-services/Computer-vision/quickstarts/csharp-print-text
-
-        //    try
-        //    {
-
-        //        HttpClient client = new HttpClient();
-
-        //        // Request headers.
-        //        client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", ocrKey);
-
-        //        // Request parameters.
-        //        string requestParameters = "language=unk&detectOrientation=true";
-
-        //        // Assemble the URI for the REST API Call.
-        //        string uri = ocrUri + "?" + requestParameters;
-
-        //        HttpResponseMessage response;
-
-        //        // Request body. Posts a locally stored JPEG image.
-        //        byte[] byteData = ImageToBytes(image);
-
-        //        using (ByteArrayContent content = new ByteArrayContent(byteData))
-        //        {
-        //            // This example uses content type "application/octet-stream".
-        //            // The other content types you can use are "application/json"
-        //            // and "multipart/form-data".
-        //            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-
-        //            // Make the REST API call.
-        //            response = await client.PostAsync(uri, content);
-        //        }
-
-        //        // Get the JSON response.
-        //        string contentString = await response.Content.ReadAsStringAsync();
-
-        //        // Display the JSON response.
-        //        return JObject.Parse(contentString);
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        LogWriter.Log(e, "Azure request failed");
-        //        return null;
-        //    }
-        //}
-
-        //static byte[] ImageToBytes(Image image)
-        //{
-        //    using (var stream = new MemoryStream())
-        //    {
-        //        image.Save(stream, System.Drawing.Imaging.ImageFormat.Bmp);
-        //        stream.Position = 0;
-
-        //        var bytes = new Byte[stream.Length];
-        //        stream.Read(bytes, 0, bytes.Length);
-
-        //        return bytes;
-        //    }
+        //        var engine = new TesseractEngine(@"./tessdata", "jpn", EngineMode.Default);
+        //        var page = engine.Process(new Bitmap(image));
+        //        return page.GetText();
+        //    });
         //}
 
         #endregion

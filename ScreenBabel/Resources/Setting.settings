@@ -1,0 +1,33 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="ScreenBabel.Resources" GeneratedClassName="Setting">
+  <Profiles />
+  <Settings>
+    <Setting Name="RecognitionMode" Type="System.String" Scope="User">
+      <Value Profile="(Default)">YouDao</Value>
+    </Setting>
+    <Setting Name="YouDaoAppKey" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="YouDaoAppSecret" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="YouDaoOCRApi" Type="System.String" Scope="User">
+      <Value Profile="(Default)">https://openapi.youdao.com/ocrtransapi?from=auto&amp;to=zh-CHS</Value>
+    </Setting>
+    <Setting Name="AzureOCRKey" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="AzureOCRApi" Type="System.String" Scope="User">
+      <Value Profile="(Default)">https://westcentralus.api.cognitive.microsoft.com/vision/v2.0/ocr?language=unk&amp;detectOrientation=true</Value>
+    </Setting>
+    <Setting Name="AzureTransKey" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="AzureTransApi" Type="System.String" Scope="User">
+      <Value Profile="(Default)">https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&amp;to=zh-Hans</Value>
+    </Setting>
+    <Setting Name="TesseractData" Type="System.String" Scope="User">
+      <Value Profile="(Default)">./tessdata</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

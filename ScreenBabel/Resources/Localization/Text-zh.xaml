@@ -2,6 +2,16 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="clr-namespace:ScreenBabel.Resources.Localization" xmlns:System="clr-namespace:System;assembly=mscorlib">
 
-    <System:String x:Key="MainTitle">屏幕巴别塔</System:String>
+    <System:String x:Key="Text.MainTitle">屏幕巴别塔</System:String>
+    <System:String x:Key="Text.IntervalTime">时间间隔（单位ms）</System:String>
+    <System:String x:Key="Text.CaptureAuto">自动</System:String>
+    <System:String x:Key="Text.CaptureStop">停止</System:String>
+    <System:String x:Key="Text.CaptureOnce">识别</System:String>
+    <System:String x:Key="Text.Exit">退出</System:String>
+
+    <System:String x:Key="Text.Output.Title">输出</System:String>
+    <System:String x:Key="Text.Setting.Title">设置</System:String>
+
+    <System:String x:Key="Text.Tip.InvalidIntervalTime">无效的时间间隔，只能输入数字</System:String>
 
 </ResourceDictionary>

@@ -2,6 +2,30 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="clr-namespace:ScreenBabel.Resources.Localization" xmlns:System="clr-namespace:System;assembly=mscorlib">
 
-    <System:String x:Key="MainTitle">Screen Babel</System:String>
+    <System:String x:Key="Text.MainTitle">Screen Babel</System:String>
+    <System:String x:Key="Text.IntervalTime">Interval time（ms）</System:String>
+    <System:String x:Key="Text.CaptureAuto">Auto capture</System:String>
+    <System:String x:Key="Text.CaptureStop">Stop capture</System:String>
+    <System:String x:Key="Text.CaptureOnce">Capture once</System:String>
+    <System:String x:Key="Text.Exit">Exit</System:String>
+
+    <System:String x:Key="Text.Output.Title">Output</System:String>
+
+    <System:String x:Key="Text.Setting.Title">Setting</System:String>
+    <System:String x:Key="Text.Setting.YouDao">YouDao</System:String>
+    <System:String x:Key="Text.Setting.YouDao.AppKey">App Key (ID)</System:String>
+    <System:String x:Key="Text.Setting.YouDao.AppSecret">App Secret</System:String>
+    <System:String x:Key="Text.Setting.YouDao.OCRApi">OCR Api</System:String>
+    <System:String x:Key="Text.Setting.Azure">Azure</System:String>
+    <System:String x:Key="Text.Setting.Azure.OCRKey">OCR Key</System:String>
+    <System:String x:Key="Text.Setting.Azure.OCRApi">OCR Api</System:String>
+    <System:String x:Key="Text.Setting.Azure.TransKey">Translator Key</System:String>
+    <System:String x:Key="Text.Setting.Azure.TransApi">Translator Api</System:String>
+    <System:String x:Key="Text.Setting.Tesseract">Tesseract</System:String>
+    <System:String x:Key="Text.Setting.Tesseract.TessdataPath">Tessdata Path</System:String>
+
+    <System:String x:Key="Text.Tip.InvalidIntervalTime">invalid interval time, only number allowed</System:String>
+    <System:String x:Key="Text.Tip.InvalidRecognitionMode">invalid settings for recognition mode: {0}</System:String>
+    <System:String x:Key="Text.Tip.SettingsSaved">"Settings already saved: {0}"</System:String>
 
 </ResourceDictionary>
